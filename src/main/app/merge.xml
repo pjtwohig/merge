@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:json="http://www.mulesoft.org/schema/mule/json"
+	xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+    <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="8081" doc:name="HTTP Listener Configuration"/>
+
+    <flow name="mergeFlow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/merge" allowedMethods="GET" doc:name="HTTP"/>
+        <flow-ref name="orderFlow" doc:name="orderFlow"/>
+
+        <flow-ref name="customerFlow" doc:name="customerFlow"/>
+        <set-payload value="#[flowVars.orders]" doc:name="Set Payload"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload map ($ ++ {
+	customer: flowVars.customers
+		filter ((item, index) -> 
+			item.custId == $.custId 
+		) 
+}
+)
+]]></dw:set-payload>
+        </dw:transform-message>
+        <logger message="Payload = #[payload]" level="INFO" doc:name="Logger"/>
+        <json:object-to-json-transformer doc:name="Object to JSON"/>
+    </flow>
+    
+    <flow name="mergeFlow2">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/merge2" allowedMethods="GET" doc:name="HTTP"/>
+        <flow-ref name="orderFlow" doc:name="orderFlow"/>
+
+        <flow-ref name="customerFlow" doc:name="customerFlow"/>
+        <set-payload value="#[flowVars.orders]" doc:name="Set Payload"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload map ( (payload01 , indexOfPayload01) -> using ( lookupElement = ( flowVars.customers filter ((obj1) -> payload01.custId ~= obj1.custId ) )[0] )
+     {
+         custName: lookupElement.custName,
+         orderId: payload01.orderId
+     }
+ )]]></dw:set-payload>
+        </dw:transform-message>
+        <logger message="Payload = #[payload]" level="INFO" doc:name="Logger"/>
+        <json:object-to-json-transformer doc:name="Object to JSON"/>
+    </flow>
+    
+    <sub-flow name="orderFlow">
+        <logger message="Emulate a microservice call to retrieve Orders" level="INFO" doc:name="Logger - Order retrieve"/>
+        <set-payload value="#[[  {   &quot;orderId&quot;: 100,   &quot;orderDesc&quot;: &quot;First order&quot;,   &quot;orderDate&quot;: &quot;2017/07/30&quot;,   &quot;custId&quot;: 100  },  {   &quot;orderId&quot;: 101,   &quot;orderDesc&quot;: &quot;Second order&quot;,   &quot;orderDate&quot;: &quot;2017/08/27&quot;,   &quot;custId&quot;: 101  },  {   &quot;orderId&quot;: 102,   &quot;orderDesc&quot;: &quot;Third order&quot;,   &quot;orderDate&quot;: &quot;2017/09/02&quot;,   &quot;custId&quot;: 100  } ]]" doc:name="Set Payload"/>
+        <json:object-to-json-transformer doc:name="Object to JSON"/>
+        <dw:transform-message metadata:id="af024f3a-1163-4884-8a2e-888837e4fc10" doc:name="Transform Message">
+            <dw:input-payload mimeType="application/json"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload map {
+	orderId: $.orderId,
+	orderDesc: $.orderDesc,
+	orderDate: $.orderDate,
+	custId: $.custId
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <logger message="Payload = #[payload]" level="INFO" doc:name="Logger - current payload"/>
+        <set-variable variableName="orders" value="#[payload]" doc:name="Variable"/>
+    </sub-flow>
+    
+    <sub-flow name="customerFlow">
+        <logger message="Emulate a call to a microservice to retrieve customers" level="INFO" doc:name="Logger - Customer retrieve"/>
+        <set-payload value="#[[  {   &quot;custId&quot;: 100,   &quot;custName&quot;: &quot;ACME Co.&quot;,   &quot;custState&quot;: &quot;AZ&quot;  },  {   &quot;custId&quot;: 101,   &quot;custName&quot;: &quot;Widgets Co.&quot;,   &quot;custState&quot;: &quot;WI&quot;  },  {   &quot;custId&quot;: 102,   &quot;custName&quot;: &quot;Bogus Co.&quot;,   &quot;custState&quot;: &quot;CA&quot;  } ]]" doc:name="Set Payload"/>
+        <json:object-to-json-transformer doc:name="Object to JSON"/>
+        <dw:transform-message metadata:id="bc434f2f-0ad9-4608-b292-bf4965304757" doc:name="Transform Message">
+            <dw:input-payload mimeType="application/json"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload map {
+	custId: $.custId,
+	custName: $.custName,
+	custState: $.custState
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <logger message="Payload = #[payload]" level="INFO" doc:name="Logger - current payload"/>
+        <set-variable variableName="customers" value="#[payload]" doc:name="Variable"/>
+    </sub-flow>
+</mule>

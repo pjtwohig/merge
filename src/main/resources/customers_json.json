@@ -1,0 +1,17 @@
+[
+	{
+		"custId": 100,
+		"custName": "ACME Co.",
+		"custState": "AZ"
+	},
+	{
+		"custId": 102,
+		"custName": "Widgets Co.",
+		"custState": "WI"
+	},
+	{
+		"custId": 103,
+		"custName": "Bogus Co.",
+		"custState": "CA"
+	}
+]
